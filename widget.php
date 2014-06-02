@@ -44,6 +44,10 @@ class EDD_FPD_Widget extends WP_Widget {
 	public function widget( $args, $instance ) {
 		global $post;
 
+		if ( ! class_exists( 'EDD_Front_End_Submissions' ) ) {
+			return;
+		}
+
 		// If called directly, assign an unique index for caching.
 		if ( -1 == $this->number ) {
 			static $num = -1;
@@ -64,11 +68,10 @@ class EDD_FPD_Widget extends WP_Widget {
 
 		if ( '' != $title )
 			echo $before_title . $title . $after_title;
-
 		?>
 
 		<table class="edd-fpd">
-			<?php foreach ( $meta as $label => $value ) : ?>
+			<?php foreach ( $meta as $label => $value ) : if ( '' == $value ) continue; ?>
 			<tr>
 				<th><?php echo $label; ?></th>
 				<td><?php echo $value; ?></td>
@@ -86,74 +89,61 @@ class EDD_FPD_Widget extends WP_Widget {
 	public function get_product_details() {
 		global $post;
 
-		$form_id = EDD_FES()->fes_options->get_option( 'fes-submission-form' );
+		$form_id = EDD_FES()->helper->get_option( 'fes-submission-form' );
+
+		if ( ! $form_id ) {
+			return;
+		}
+
 		$fields  = get_post_meta( $form_id, 'fes-form', true );
 		$meta    = array();
 
-		if ( ! $fields )
+		if ( ! $fields ) {
 			return;
+		}
 
 		foreach ( $fields as $field ) {
 			if ( ! isset( $field[ 'product_detail' ] ) )
 				continue;
 
-			switch ( $field[ 'input_type' ] ) {
-				case 'image_upload' :
-				case 'file_upload' :
+			$value = get_post_meta( $post->ID, $field[ 'name' ], true );
 
-					$value = get_post_meta( $post->ID, $field[ 'name' ] );
+			switch ( $field[ 'input_type' ] ) {
+				case 'file_upload' :
+					$uploads = array();
 
 					foreach ( $value as $attachment_id ) {
-						if ( 'image_upload' == $attr[ 'input_type' ] ) {
-							$thumb = wp_get_attachment_image( $attachment_id, 'thumbnail' );
-						} else {
-							$thumb = get_post_field( 'post_title', $attachment_id );
-						}
-
-						$full_size = wp_get_attachment_url( $attachment_id );
-                        $value     = sprintf( '<a href="%s">%s</a> ', $full_size, $thumb );
+						$uploads[] = wp_get_attachment_link( $attachment_id, 'thumbnail', false, true );
 					}
 
-					$meta[ $thumb ] = $value;
-
-					break;
+					$value = implode( '<br />', $uploads );
+				break;
 
 				case 'checkbox' :
 				case 'multiselect' :
-
-					$value = get_post_meta( $post->ID, $field[ 'name' ], true );
-					$value = explode( '|', $value );
-					$value = array_map( 'trim', $value );
-					$value = implode( $this->multi_sep, $value );
-
-					break;
-
-				case 'taxonomy' :
-
-					$value = wp_get_post_terms( $post->ID, $field[ 'name' ] );
-					$terms = array();
-
-					foreach ( $value as $term ) {
-						$terms[] = '<a href="' . get_term_link( $term, $field[ 'name' ] ) . '">' . $term->name . '</a>';
+					if ( ! is_array( $value ) ) {
+						$value = explode( '|', $value );
+					} else {
+						$value = array_map( 'trim', $value );
 					}
 
-					$value = implode( $this->multi_sep, $terms );
-
-					break;
+					$value = implode( $this->multi_sep, $value );
+				break;
 
 				default :
-
 					if ( 'no' != $field[ 'is_meta' ] ) {
 						$value = get_post_meta( $post->ID, $field[ 'name' ], true );
 					} else {
 						$value = get_post_field( $field[ 'name' ], $post->ID );
 					}
-
-					break;
+				break;
 			}
 
 			$label = apply_filters( 'edd_fpd_label', $field[ 'label' ], $field );
 			$value = apply_filters( 'edd_fpd_value', $value, $field );
+
+			if ( empty( $value ) )
+				continue;
 
 			$meta[ $label ] = $value;
 
