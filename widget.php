@@ -118,11 +118,15 @@ class EDD_FPD_Widget extends WP_Widget {
 				case 'file_upload' :
 					$uploads = array();
 
-					foreach ( $value as $attachment_id ) {
-						$uploads[] = wp_get_attachment_link( $attachment_id, 'thumbnail', false, true );
-					}
+					$value = '';
 
-					$value = implode( '<br />', $uploads );
+					if ( is_array( $value ) ) {
+						foreach ( $value as $attachment_id ) {
+							$uploads[] = wp_get_attachment_link( $attachment_id, 'thumbnail', false, true );
+						}
+
+						$value = implode( '<br />', $uploads );
+					}
 				break;
 
 				case 'checkbox' :
@@ -139,7 +143,7 @@ class EDD_FPD_Widget extends WP_Widget {
 				case 'taxonomy' :
 					$terms = wp_get_post_terms( $post->ID, $field[ 'name' ] );
 
-					if ( ! is_wp_error( $terms ) ) {
+					if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
 						switch ( $field[ 'type' ] ) {
 
 							case 'checkbox' :
@@ -170,6 +174,8 @@ class EDD_FPD_Widget extends WP_Widget {
 					}
 				break;
 			}
+
+			$value = make_clickable( $value );
 
 			$label = apply_filters( 'edd_fpd_label', $field[ 'label' ], $field );
 			$value = apply_filters( 'edd_fpd_value', $value, $field );
